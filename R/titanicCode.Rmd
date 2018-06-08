@@ -1,0 +1,321 @@
+---
+title: 'Pràctica 2: Neteja i validació de les dades '
+author: "Hector Herranz Cayuela"
+date: '`r format(Sys.Date(),"%e de %B, %Y")`'
+output:
+  html_document:
+    toc: yes
+    number_sections: yes
+    toc_depth: 2
+  pdf_document:
+    toc: yes
+    number_sections: yes
+lang: ca    # speak language: ca is catalan, es is spanish
+nocite: |   # cites do not include in the text but include in bibilography references
+  @vegas2017, @solis2017
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load_libraries, include=FALSE}
+library(knitr)
+library(lubridate)
+library(VIM)
+library(stringr)
+library(psych)
+library(ggplot2)
+```
+
+# Importació de les dades
+```{r lectura, echo=FALSE}
+# read data
+trainFile <- "train.csv"
+testFile <- "test.csv"
+
+test <- read.csv(testFile, stringsAsFactors=TRUE)
+
+train <- read.csv(trainFile, stringsAsFactors=TRUE)
+
+```
+
+
+****
+# Integració i selecció de les dades d'interès a analitzar
+****
+
+```{r}
+# Visualització de les dades
+kable(head(train))
+```
+
+```{r}
+# Enginyeria de característiques
+
+
+
+kable(head(train))
+
+#Preparem columna Survived per fusionar
+test$Survived <- NA
+
+#Fusionem test i train
+combi <- rbind(train, test)
+
+combi$Name <- as.character(combi$Name)
+
+#Obtenim el titol 
+combi$Title <- sapply(combi$Name, FUN=function(x) {strsplit(x, split='[,.]')[[1]][2]})
+combi$Title <- factor(combi$Title)
+
+#Obtenim el titol per a test
+test$Name <- as.character(test$Name)
+test$Title <- sapply(test$Name, FUN=function(x) {strsplit(x, split='[,.]')[[1]][2]})
+test$Title <- factor(test$Title)
+
+#Omplir buits en Age. Trobem la mitjana de cada titol
+ageMeans <- aggregate(combi[, 6], list(combi$Title),
+          function(x) c(mean = ceiling(mean(x, na.rm=TRUE))))
+ageMeans
+#Asignem la mitjana de cada titol als titols amb Age buida.
+combi$Age <- ifelse(!is.na(combi$Age) , combi$Age, ageMeans[combi$Title,"x"])
+test$Age <- ifelse(!is.na(test$Age) , test$Age, ageMeans[test$Title,"x"])
+
+#Arreglem el titol
+combi$Title = gsub('Mlle', 'Miss', combi$Title)
+combi$Title = gsub('Ms', 'Miss', combi$Title)
+combi$Title = gsub('Mme', 'Mrs', combi$Title)
+
+
+test$Title = gsub('Mlle', 'Miss', test$Title)
+test$Title = gsub('Ms', 'Miss', test$Title)
+test$Title = gsub('Mme', 'Mrs', test$Title)
+
+
+#Obtenim el tamany de la familia
+combi$FamilySize <- combi$SibSp + combi$Parch + 1
+
+#Obtenim el tamany de la familia per a test
+test$FamilySize <- test$SibSp + test$Parch + 1
+
+
+
+
+
+
+
+summary(combi$Age)
+
+#Obtenim el rang d'edat
+combi$AgeRange <- 0
+combi$AgeRange[combi$Age < 18] <- 1
+combi$AgeRange[combi$Age >= 18 & combi$age <24] <- 2
+combi$AgeRange[combi$Age >= 24 & combi$age <32] <- 3
+combi$AgeRange[combi$Age >= 32 & combi$age <48] <- 4
+combi$AgeRange[combi$Age >= 48 & combi$age <56] <- 5
+combi$AgeRange[combi$Age >= 56 & combi$age <64] <- 6
+combi$AgeRange[combi$Age >= 64 & combi$age <72] <- 7
+combi$AgeRange[combi$Age >= 72] <- 8
+
+
+test$AgeRange <- 0
+test$AgeRange[test$Age < 18] <- 1
+test$AgeRange[test$Age >= 18 & test$age <24] <- 2
+test$AgeRange[test$Age >= 24 & test$age <32] <- 3
+test$AgeRange[test$Age >= 32 & test$age <48] <- 4
+test$AgeRange[test$Age >= 48 & test$age <56] <- 5
+test$AgeRange[test$Age >= 56 & test$age <64] <- 6
+test$AgeRange[test$Age >= 64 & test$age <72] <- 7
+test$AgeRange[test$Age >= 72] <- 8
+
+
+#seleccionem les columnes 
+
+columns <- c('PassengerId', 'Survived', 'Pclass','Sex','Age','SibSp','Parch','Fare','Embarked','AgeRange','Title','FamilySize')
+
+columnsTest <- c('PassengerId', 'Pclass','Sex','Age','SibSp','Parch','Fare','Embarked','AgeRange','Title','FamilySize')
+
+combi <- combi[, columns]
+
+test <- test[, columnsTest]
+
+
+kable(head(combi))
+
+```
+
+```{r}
+#comprobem les dades
+
+summary(combi$Survived)
+summary(combi$Pclass)
+summary(combi$Sex)
+summary(combi$Age)
+summary(combi$SibSp)
+summary(combi$Parch)
+summary(combi$Ticket)
+summary(combi$Fare)
+summary(combi$Cabin)
+summary(combi$Embarked)
+summary(combi$AgeRange)
+summary(combi$Title)
+summary(combi$FamilySize)
+
+
+which(combi$Survived == '')
+which(combi$Pclass == '')
+which(combi$Sex == '')
+which(combi$Age == '')
+which(combi$SibSp == '')
+which(combi$Parch == '')
+which(combi$Ticket == '')
+which(combi$Fare == '')
+sum(combi$Cabin == "")
+sum(combi$Embarked == "")
+which(combi$AgeRange == '')
+which(combi$Title == '')
+which(combi$FamilySize == '')
+
+length(combi)
+
+```
+
+```{r}
+
+boxplot(combi$Survived)
+boxplot(combi$Pclass)
+boxplot(combi$Age)
+boxplot(combi$SibSp)
+boxplot(combi$Parch)
+boxplot(combi$Fare)
+boxplot(combi$AgeRange)
+boxplot(combi$FamilySize)
+
+
+```
+
+```{r}
+
+```
+
+
+
+```{r}
+library(dplyr)
+#Arreglem els formats
+combi <- combi %>% mutate_if(is.character, as.factor)
+test <- test %>% mutate_if(is.character, as.factor)
+
+#Reasigmen els nivells posibles al dataset de test
+levels(test$Title) <- levels(combi$Title)
+levels(test$Embarked) <- levels(combi$Embarked)
+
+
+trainFinal <- na.omit(combi[complete.cases(combi),])
+summary(trainFinal)
+
+
+kable(head(test))
+kable(head(trainFinal))
+
+kable(test)
+kable(trainFinal)
+
+str(test)
+str(trainFinal)
+
+
+library(randomForest)
+set.seed(6551)
+
+str(test)
+
+nms <- c("Pclass", "Sex","SibSp","Parch","Embarked","Title") 
+trainFinal[nms] <- lapply(trainFinal[nms], as.numeric) 
+test[nms] <- lapply(test[nms], as.numeric) 
+str(test)
+
+summary(trainFinal)
+kable(apply(trainFinal, 2, var,na.rm=TRUE))
+
+#trainFinalNormZ <- as.data.frame( scale(trainFinal))
+#testNormZ <- as.data.frame( scale(test))
+
+
+doit <- function(x) {(x - min(x, na.rm=TRUE))/(max(x,na.rm=TRUE) -
+min(x, na.rm=TRUE))}
+
+
+trainFinalNormZ <-  as.data.frame(lapply(trainFinal, doit))
+testNormZ <-  as.data.frame(lapply(test, doit))
+
+trainFinal$Survived <- trainFinal$Survived
+
+
+kable(apply(trainFinalNormZ, 2, var,na.rm=TRUE))
+
+
+
+
+str(testNormZ)
+
+fit <- randomForest(as.factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + Title + FamilySize + AgeRange , data=trainFinalNormZ, importance=TRUE, ntree=100, na.action=na.omit) 
+
+varImpPlot(fit)
+
+plot(fit, ylim=c(0,0.36))
+legend('topright', colnames(fit$err.rate), col=1:3, fill=1:3)
+
+Prediction <- predict(fit, testNormZ)
+
+length(test$PassengerId)
+length(Prediction)
+
+
+str(Prediction)
+str(test$PassengerId)
+
+result <- data.frame(as.table(setNames(test$PassengerId, Prediction)))
+
+#result <- matrix(test$PassengerId, Prediction)
+colnames(result) <- c('Survived', 'PassengerId')
+#result <- as.table(result)
+
+
+#submitResutl <- data.frame('PassengerId' = test$PassengerId, 'Survived' = Prediction)
+
+write.csv(result, file = "firstforest.csv", row.names = FALSE)
+
+barplot(tapply(trainFinal$Survived, trainFinal$Age, FUN=sum))
+
+
+
+library('ggplot2') # visualization
+library('ggthemes') # visualization
+ggplot(trainFinal[1:891,], aes(x = FamilySize, fill = factor(Survived))) +
+  geom_bar(stat='count', position='dodge') +
+  scale_x_continuous(breaks=c(1:11)) +
+  labs(x = 'Family Size') +
+  theme_few()
+
+
+```
+
+
+
+# ReferÃ¨ncies 
+
+[Quick-R](www.statmethods.net/)
+
+[Cookbook for R](www.cookbook-r.com/)
+
+[Clean Code](rmhogervorst.nl/cleancode/blog/)
+
+
+
+
+
+
+
